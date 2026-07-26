@@ -104,7 +104,14 @@ export function LivePulseApp() {
     try {
       const response = await fetch(`/api/sessions?code=${cleanCode}`);
       const data = await response.json() as { session?: { id: string }; active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }>; error?: string };
-      if (!response.ok || !data.active) throw new Error(data.error ?? "세션을 찾을 수 없습니다.");
+      if (!response.ok || !data.active) {
+        const boardResponse = await fetch(`/api/boards?code=${cleanCode}`);
+        if (boardResponse.ok) {
+          window.location.href = `/board/${cleanCode}`;
+          return;
+        }
+        throw new Error(data.error ?? "세션을 찾을 수 없습니다.");
+      }
       setActiveId(data.active.id);
       setSessionId(data.session?.id ?? "");
       setActivity(data.active.type);

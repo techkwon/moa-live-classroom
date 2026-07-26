@@ -80,3 +80,24 @@ test("ships the three requested activity types and durable storage declaration",
   assert.equal(JSON.parse(hosting).d1, "DB");
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });
+
+test("locks responses to the presented question and provides section boards with uploads", async () => {
+  const [sessionsApi, boardsApi, boardCanvas, studio, schema, hosting] = await Promise.all([
+    readFile(new URL("../app/api/sessions/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/boards/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/board/[code]/BoardCanvas.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/boards/BoardStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+  ]);
+  assert.match(sessionsApi, /현재 진행 중인 문항에만 응답하거나 수정할 수 있습니다/);
+  assert.match(sessionsApi, /activities\.isActive/);
+  assert.match(schema, /boardSections/);
+  assert.match(schema, /boardPosts/);
+  assert.match(boardsApi, /10 \* 1024 \* 1024/);
+  assert.match(boardsApi, /env\.UPLOADS\.put/);
+  assert.match(studio, /섹션 구성/);
+  assert.match(boardCanvas, /파일 첨부/);
+  assert.match(boardCanvas, /교사 관리 모드/);
+  assert.equal(JSON.parse(hosting).r2, "UPLOADS");
+});

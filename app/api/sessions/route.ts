@@ -14,8 +14,9 @@ export async function POST(request: Request) {
       const participantId = payload.participantId?.trim();
       const answer = payload.answer?.trim();
       if (!activityId || !participantId || !answer) return Response.json({ error: "응답 정보가 부족합니다." }, { status: 400 });
-      const [activity] = await db.select({ accepting: activities.accepting }).from(activities).where(eq(activities.id, activityId)).limit(1);
-      if (!activity?.accepting) return Response.json({ error: "응답이 마감되었습니다." }, { status: 409 });
+      const [activity] = await db.select({ accepting: activities.accepting, isActive: activities.isActive }).from(activities).where(eq(activities.id, activityId)).limit(1);
+      if (!activity?.isActive) return Response.json({ error: "현재 진행 중인 문항에만 응답하거나 수정할 수 있습니다." }, { status: 409 });
+      if (!activity.accepting) return Response.json({ error: "응답이 마감되었습니다." }, { status: 409 });
       await db.insert(responses).values({ id: crypto.randomUUID(), activityId, participantId, answer })
         .onConflictDoUpdate({ target: [responses.activityId, responses.participantId], set: { answer, createdAt: sql`CURRENT_TIMESTAMP` } });
       return Response.json({ ok: true });

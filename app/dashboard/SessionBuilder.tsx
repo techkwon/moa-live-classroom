@@ -143,6 +143,7 @@ export function SessionBuilder({ user, signOutPath }: { user: { displayName: str
       <header className="builder-topbar">
         <Link className="brand" href="/"><span className="brand-mark">M</span><span>모아</span></Link>
         <div className="builder-account">
+          <Link className="board-nav-button" href="/boards">▦ 보드 만들기</Link>
           <span><b>{user.displayName}</b><small>{user.email}</small></span>
           <a href={signOutPath}>로그아웃</a>
         </div>
