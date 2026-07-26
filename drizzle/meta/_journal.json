@@ -15,6 +15,13 @@
       "when": 1785074743345,
       "tag": "0001_silly_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785076275418,
+      "tag": "0002_amused_patch",
+      "breakpoints": true
     }
   ]
 }

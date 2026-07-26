@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type ActivityType = "quiz" | "cloud" | "open";
-type DraftActivity = { id: string; type: ActivityType; prompt: string; options: string[]; correctIndices: number[] };
+type DraftActivity = { id: string; type: ActivityType; prompt: string; options: string[]; correctIndices: number[]; hasCorrectAnswer: boolean; cloudShape: "scatter" | "circle" | "heart" | "speech" };
 type SavedSession = { id: string; code: string; title: string; status: string; createdAt: string; activityCount: number };
 
 const activityMeta: Record<ActivityType, { label: string; icon: string; color: string }> = {
@@ -20,6 +20,8 @@ function makeActivity(type: ActivityType): DraftActivity {
     prompt: type === "quiz" ? "새 퀴즈 질문" : type === "cloud" ? "한 단어로 표현해 주세요" : "자유롭게 생각을 나눠 주세요",
     options: type === "quiz" ? ["선택지 1", "선택지 2", "선택지 3", "선택지 4"] : [],
     correctIndices: [0],
+    hasCorrectAnswer: true,
+    cloudShape: "scatter",
   };
 }
 
@@ -54,8 +56,9 @@ export function SessionBuilder({ user, signOutPath }: { user: { displayName: str
       };
       if (!response.ok || !data.session || !data.activities) throw new Error(data.error ?? "세션을 열지 못했습니다.");
       const items = data.activities.map((item) => {
-        const stored = item.options ? JSON.parse(item.options) as { choices?: string[]; correctIndex?: number; correctIndices?: number[] } : {};
-        return { id: item.id, type: item.type, prompt: item.prompt, options: stored.choices ?? [], correctIndices: stored.correctIndices ?? [stored.correctIndex ?? 0] };
+        const stored = item.options ? JSON.parse(item.options) as { choices?: string[]; correctIndex?: number; correctIndices?: number[]; hasCorrectAnswer?: boolean; cloudShape?: DraftActivity["cloudShape"] } : {};
+        const correctIndices = stored.correctIndices ?? (stored.correctIndex === undefined ? [] : [stored.correctIndex]);
+        return { id: item.id, type: item.type, prompt: item.prompt, options: stored.choices ?? [], correctIndices, hasCorrectAnswer: stored.hasCorrectAnswer ?? correctIndices.length > 0, cloudShape: stored.cloudShape ?? "scatter" };
       });
       setEditingSessionId(data.session.id);
       setTitle(data.session.title);
@@ -197,19 +200,20 @@ export function SessionBuilder({ user, signOutPath }: { user: { displayName: str
               <textarea value={selected.prompt} onChange={(event) => updateSelected({ prompt: event.target.value })} maxLength={180} />
               {selected.type === "quiz" && (
                 <div className="option-editor">
-                  <div className="field-label"><label>선택지</label><small>정답에 체크하세요</small></div>
+                  <div className="quiz-mode-toggle"><span><b>정답이 있는 퀴즈</b><small>끄면 정답 없이 의견만 집계합니다.</small></span><button className={selected.hasCorrectAnswer ? "on" : ""} onClick={() => updateSelected({ hasCorrectAnswer: !selected.hasCorrectAnswer, correctIndices: selected.hasCorrectAnswer ? [] : [0] })}><i /></button></div>
+                  <div className="field-label"><label>선택지</label><small>{selected.hasCorrectAnswer ? "정답에 체크하세요" : "의견 선택지"}</small></div>
                   {selected.options.map((option, index) => (
                     <div className="option-row" key={index}>
-                      <button className={selected.correctIndices.includes(index) ? "correct" : ""} onClick={() => toggleCorrect(index)}>{selected.correctIndices.includes(index) ? "✓" : String.fromCharCode(65 + index)}</button>
+                      <button disabled={!selected.hasCorrectAnswer} className={selected.correctIndices.includes(index) ? "correct" : ""} onClick={() => toggleCorrect(index)}>{selected.correctIndices.includes(index) ? "✓" : String.fromCharCode(65 + index)}</button>
                       <input value={option} onChange={(event) => updateSelected({ options: selected.options.map((value, optionIndex) => optionIndex === index ? event.target.value : value) })} />
                       <button className="remove-option" aria-label={`${index + 1}번 선택지 삭제`} onClick={() => removeOption(index)}>×</button>
                     </div>
                   ))}
                   <button className="add-option" onClick={addOption}>＋ 선택지 추가 ({selected.options.length}/8)</button>
-                  <p className="multi-answer-tip">복수 정답은 정답 버튼을 여러 개 체크하세요.</p>
+                  {selected.hasCorrectAnswer && <p className="multi-answer-tip">복수 정답은 정답 버튼을 여러 개 체크하세요.</p>}
                 </div>
               )}
-              {selected.type === "cloud" && <div className="editor-tip">✦ 참여자는 최대 20자의 단어나 짧은 문구를 입력합니다.</div>}
+              {selected.type === "cloud" && <div className="cloud-settings"><div className="editor-tip">✦ 참여자는 최대 20자의 단어나 짧은 문구를 입력합니다.</div><label>워드클라우드 모양</label><div className="shape-presets">{([["scatter","자유"],["circle","원형"],["heart","하트"],["speech","말풍선"]] as const).map(([shape,label]) => <button className={selected.cloudShape === shape ? "active" : ""} key={shape} onClick={() => updateSelected({ cloudShape: shape })}><span>{shape === "scatter" ? "✦" : shape === "circle" ? "●" : shape === "heart" ? "♥" : "▰"}</span>{label}</button>)}</div></div>}
               {selected.type === "open" && <div className="editor-tip">↗ 참여자는 최대 280자의 익명 답변을 작성합니다.</div>}
               <div className="editor-preview">
                 <span>참여 화면 미리보기</span>

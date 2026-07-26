@@ -11,6 +11,8 @@ type ActivityInput = {
   options?: string[];
   correctIndex?: number;
   correctIndices?: number[];
+  hasCorrectAnswer?: boolean;
+  cloudShape?: "scatter" | "circle" | "heart" | "speech";
 };
 
 async function authenticatedUser() {
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
   const user = await authenticatedUser();
   if (!user) return Response.json({ error: "로그인이 필요합니다." }, { status: 401 });
   try {
-    const payload = await request.json() as { action?: string; sessionId?: string; activityId?: string; title?: string; launch?: boolean; activities?: ActivityInput[] };
+    const payload = await request.json() as { action?: string; sessionId?: string; activityId?: string; accepting?: boolean; revealAnswer?: boolean; title?: string; launch?: boolean; activities?: ActivityInput[] };
     const db = getDb();
     if (payload.action === "activate") {
       const sessionId = payload.sessionId?.trim();
@@ -65,8 +67,21 @@ export async function POST(request: Request) {
       const [target] = await db.select({ id: activities.id }).from(activities).where(and(eq(activities.id, activityId), eq(activities.sessionId, sessionId))).limit(1);
       if (!owned || !target) return Response.json({ error: "변경 권한이 없습니다." }, { status: 403 });
       await db.update(activities).set({ isActive: false }).where(eq(activities.sessionId, sessionId));
-      await db.update(activities).set({ isActive: true }).where(eq(activities.id, activityId));
+      await db.update(activities).set({ isActive: true, accepting: true, revealAnswer: false }).where(eq(activities.id, activityId));
       await db.update(sessions).set({ status: "live" }).where(eq(sessions.id, sessionId));
+      return Response.json({ ok: true });
+    }
+    if (payload.action === "control") {
+      const sessionId = payload.sessionId?.trim();
+      const activityId = payload.activityId?.trim();
+      if (!sessionId || !activityId) return Response.json({ error: "세션과 활동 정보가 필요합니다." }, { status: 400 });
+      const [owned] = await db.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.ownerEmail, user.email))).limit(1);
+      const [target] = await db.select({ id: activities.id }).from(activities).where(and(eq(activities.id, activityId), eq(activities.sessionId, sessionId))).limit(1);
+      if (!owned || !target) return Response.json({ error: "변경 권한이 없습니다." }, { status: 403 });
+      await db.update(activities).set({
+        ...(typeof payload.accepting === "boolean" ? { accepting: payload.accepting } : {}),
+        ...(typeof payload.revealAnswer === "boolean" ? { revealAnswer: payload.revealAnswer } : {}),
+      }).where(eq(activities.id, activityId));
       return Response.json({ ok: true });
     }
     if (payload.action !== "save") return Response.json({ error: "지원하지 않는 요청입니다." }, { status: 400 });
@@ -79,9 +94,11 @@ export async function POST(request: Request) {
       if (!type || !["quiz", "cloud", "open"].includes(type) || !prompt) throw new Error(`${index + 1}번 활동을 확인해 주세요.`);
       const options = type === "quiz" ? (item.options ?? []).map((value) => value.trim()).filter(Boolean) : [];
       if (type === "quiz" && options.length < 2) throw new Error(`${index + 1}번 퀴즈에는 선택지가 2개 이상 필요합니다.`);
-      const rawCorrect = item.correctIndices?.length ? item.correctIndices : [item.correctIndex ?? 0];
+      const hasCorrectAnswer = item.type === "quiz" && item.hasCorrectAnswer !== false;
+      const rawCorrect = hasCorrectAnswer ? (item.correctIndices?.length ? item.correctIndices : [item.correctIndex ?? 0]) : [];
       const correctIndices = [...new Set(rawCorrect.map((value) => Math.min(Math.max(value, 0), Math.max(options.length - 1, 0))))].sort((a, b) => a - b);
-      return { type, prompt, options, correctIndices };
+      const cloudShape = ["scatter","circle","heart","speech"].includes(item.cloudShape ?? "") ? item.cloudShape : "scatter";
+      return { type, prompt, options, correctIndices, hasCorrectAnswer, cloudShape };
     });
 
     const sessionId = payload.sessionId?.trim() || crypto.randomUUID();
@@ -99,7 +116,9 @@ export async function POST(request: Request) {
       sessionId,
       type: item.type,
       prompt: item.prompt,
-      options: item.type === "quiz" ? JSON.stringify({ choices: item.options, correctIndices: item.correctIndices }) : null,
+      options: item.type === "quiz"
+        ? JSON.stringify({ choices: item.options, correctIndices: item.correctIndices, hasCorrectAnswer: item.hasCorrectAnswer })
+        : item.type === "cloud" ? JSON.stringify({ cloudShape: item.cloudShape }) : null,
       position,
       isActive: Boolean(payload.launch && position === 0),
     })));

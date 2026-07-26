@@ -42,6 +42,26 @@ test("gates session authoring behind ChatGPT sign-in and owner checks", async ()
   assert.match(presenter, /create-qr-code/);
   assert.match(presenter, /참여 링크 복사/);
   assert.match(presenter, /2초마다 자동 집계/);
+  assert.match(presenter, /참여 정보 숨기기/);
+  assert.match(presenter, /응답 마감/);
+  assert.match(presenter, /정답 공개/);
+  assert.match(builder, /정답 없이 의견만 집계/);
+  assert.match(builder, /워드클라우드 모양/);
+});
+
+test("persists participant reactions and open-response likes", async () => {
+  const [schema, sessionsApi, participant] = await Promise.all([
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sessions/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/LivePulseApp.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(schema, /responseLikes/);
+  assert.match(schema, /sessionReactions/);
+  assert.match(schema, /revealAnswer/);
+  assert.match(sessionsApi, /action === "react"/);
+  assert.match(sessionsApi, /action === "like"/);
+  assert.match(participant, /기다리는 동안 지금 기분은/);
+  assert.match(participant, /toggleLike/);
 });
 
 test("ships the three requested activity types and durable storage declaration", async () => {

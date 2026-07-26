@@ -29,6 +29,12 @@ export function LivePulseApp() {
   const [livePrompt, setLivePrompt] = useState("");
   const [liveOptions, setLiveOptions] = useState<string[]>([]);
   const [multiSelect, setMultiSelect] = useState(false);
+  const [sessionId, setSessionId] = useState("");
+  const [accepting, setAccepting] = useState(true);
+  const [revealAnswer, setRevealAnswer] = useState(false);
+  const [correctIndices, setCorrectIndices] = useState<number[]>([]);
+  const [openResults, setOpenResults] = useState<Array<{ id: string; answer: string; likes: number }>>([]);
+  const [reaction, setReaction] = useState("");
 
   const copy = activityCopy[activity];
   const displayPrompt = livePrompt || copy.prompt;
@@ -48,14 +54,19 @@ export function LivePulseApp() {
     if (joinCode?.length !== 6) return;
     async function joinFromLink() {
       const response = await fetch(`/api/sessions?code=${joinCode}`);
-      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean } };
+      const data = await response.json() as { session?: { id: string }; active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }> };
       if (!response.ok || !data.active) return;
       setCode(`${joinCode!.slice(0, 3)} ${joinCode!.slice(3)}`);
+      setSessionId(data.session?.id ?? "");
       setActiveId(data.active.id);
       setActivity(data.active.type);
       setLivePrompt(data.active.prompt);
       setLiveOptions(data.active.options ? JSON.parse(data.active.options) as string[] : []);
       setMultiSelect(Boolean(data.active.multiSelect));
+      setAccepting(data.active.accepting);
+      setRevealAnswer(data.active.revealAnswer);
+      setCorrectIndices(data.active.correctIndices ?? []);
+      setOpenResults((data.results ?? []).filter((item): item is { id: string; answer: string; likes: number } => Boolean(item.id)).map((item) => ({ id: item.id, answer: item.answer, likes: Number(item.likes ?? 0) })));
       setView("join");
     }
     void joinFromLink();
@@ -67,7 +78,13 @@ export function LivePulseApp() {
     const timer = window.setInterval(async () => {
       const response = await fetch(`/api/sessions?code=${cleanCode}`, { cache: "no-store" });
       if (!response.ok) return;
-      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean } };
+      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }> };
+      if (data.active) {
+        setAccepting(data.active.accepting);
+        setRevealAnswer(data.active.revealAnswer);
+        setCorrectIndices(data.active.correctIndices ?? []);
+        setOpenResults((data.results ?? []).filter((item): item is { id: string; answer: string; likes: number } => Boolean(item.id)).map((item) => ({ id: item.id, answer: item.answer, likes: Number(item.likes ?? 0) })));
+      }
       if (data.active && data.active.id !== activeId) {
         setActiveId(data.active.id);
         setActivity(data.active.type);
@@ -86,13 +103,18 @@ export function LivePulseApp() {
     setBusy(true);
     try {
       const response = await fetch(`/api/sessions?code=${cleanCode}`);
-      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean }; error?: string };
+      const data = await response.json() as { session?: { id: string }; active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }>; error?: string };
       if (!response.ok || !data.active) throw new Error(data.error ?? "세션을 찾을 수 없습니다.");
       setActiveId(data.active.id);
+      setSessionId(data.session?.id ?? "");
       setActivity(data.active.type);
       setLivePrompt(data.active.prompt);
       setLiveOptions(data.active.options ? JSON.parse(data.active.options) as string[] : []);
       setMultiSelect(Boolean(data.active.multiSelect));
+      setAccepting(data.active.accepting);
+      setRevealAnswer(data.active.revealAnswer);
+      setCorrectIndices(data.active.correctIndices ?? []);
+      setOpenResults((data.results ?? []).filter((item): item is { id: string; answer: string; likes: number } => Boolean(item.id)).map((item) => ({ id: item.id, answer: item.answer, likes: Number(item.likes ?? 0) })));
       setVoted([]);
       setView("join");
     } catch {
@@ -118,6 +140,26 @@ export function LivePulseApp() {
       localStorage.setItem("moa-participant", participantId);
       const response = await fetch("/api/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "respond", activityId: activeId, participantId, answer: value }) });
       if (!response.ok) throw new Error("응답 전송 실패");
+    }
+  }
+
+  function participantId() {
+    const stored = localStorage.getItem("moa-participant") ?? crypto.randomUUID();
+    localStorage.setItem("moa-participant", stored);
+    return stored;
+  }
+
+  async function sendReaction(emoji: string) {
+    if (!sessionId) return;
+    await fetch("/api/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "react", sessionId, participantId: participantId(), emoji }) });
+    setReaction(emoji);
+  }
+
+  async function toggleLike(responseId: string) {
+    const response = await fetch("/api/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "like", responseId, participantId: participantId() }) });
+    if (response.ok) {
+      const data = await response.json() as { liked: boolean };
+      setOpenResults((items) => items.map((item) => item.id === responseId ? { ...item, likes: Math.max(0, item.likes + (data.liked ? 1 : -1)) } : item));
     }
   }
 
@@ -244,6 +286,9 @@ export function LivePulseApp() {
                 <p className="eyebrow">응답 완료</p>
                 <h1>생각을 보태 주셔서<br />고마워요!</h1>
                 <p className="muted">진행자가 다음 질문을 준비하고 있어요.</p>
+                {activity === "quiz" && revealAnswer && correctIndices.length > 0 && <div className="answer-reveal">정답: {correctIndices.map((index) => liveOptions[index]).filter(Boolean).join(", ")}</div>}
+                <div className="emotion-preset"><span>기다리는 동안 지금 기분은?</span><div>{["😊","🤔","😮","👏","❤️"].map((emoji) => <button className={reaction === emoji ? "active" : ""} key={emoji} onClick={() => void sendReaction(emoji)}>{emoji}</button>)}</div></div>
+                {activity === "open" && openResults.length > 0 && <div className="participant-ideas">{openResults.map((item) => <article key={item.id}><p>{item.answer}</p><button onClick={() => void toggleLike(item.id)}>♥ {item.likes}</button></article>)}</div>}
                 <button className="secondary wide" onClick={() => { setSubmitted(false); setAnswer(""); setVoted([]); }}>다른 활동 체험하기</button>
               </>
             ) : (
@@ -254,7 +299,7 @@ export function LivePulseApp() {
                   <div className="quiz-options">
                     {quizOptions.map((option, index) => <button key={option} className={voted.includes(index) ? "selected" : ""} onClick={() => setVoted((current) => multiSelect ? (current.includes(index) ? current.filter((value) => value !== index) : [...current, index]) : [index])}><span>{voted.includes(index) ? "✓" : String.fromCharCode(65 + index)}</span>{option}</button>)}
                     {multiSelect && <p className="participant-hint">복수 정답 문항입니다. 여러 개를 선택하세요.</p>}
-                    <button className="primary wide" disabled={voted.length === 0 || busy} onClick={async () => {
+                    <button className="primary wide" disabled={!accepting || voted.length === 0 || busy} onClick={async () => {
                       if (voted.length === 0) return;
                       setBusy(true);
                       try {
@@ -266,13 +311,13 @@ export function LivePulseApp() {
                       } finally {
                         setBusy(false);
                       }
-                    }}>{busy ? "전송 중…" : "답변 보내기"}</button>
+                    }}>{!accepting ? "응답이 마감되었습니다" : busy ? "전송 중…" : "답변 보내기"}</button>
                   </div>
                 ) : (
                   <form onSubmit={submitText}>
                     <textarea maxLength={activity === "cloud" ? 20 : 280} placeholder={activity === "cloud" ? "예: 몰입" : "자유롭게 생각을 적어 주세요."} value={answer} onChange={(e) => setAnswer(e.target.value)} />
                     <div className="field-note"><span>익명으로 공유돼요</span><span>{answer.length} / {activity === "cloud" ? 20 : 280}</span></div>
-                    <button className="primary wide" disabled={busy}>{busy ? "전송 중…" : "답변 보내기"}</button>
+                    <button className="primary wide" disabled={!accepting || busy}>{!accepting ? "응답이 마감되었습니다" : busy ? "전송 중…" : "답변 보내기"}</button>
                   </form>
                 )}
                 <div className="switch-activity">
