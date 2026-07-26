@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
 
 type Post = { id: string; authorName: string; content: string; fileKey: string | null; fileName: string | null; fileType: string | null; fileSize: number | null; createdAt: string };
@@ -88,7 +89,7 @@ export function BoardCanvas({ code, boardId, manage = false }: { code?: string; 
         </article>)}
       </section>
       <button className="floating-post" onClick={() => setComposer(data.sections[0]?.id ?? "")}>＋ 게시</button>
-      {showShare && <div className="share-modal-backdrop" onClick={() => setShowShare(false)}><section className="share-modal glass-card" role="dialog" aria-modal="true" aria-labelledby="share-title" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowShare(false)}>×</button><p className="eyebrow">JOIN THIS BOARD</p><h2 id="share-title">보드에 바로 참여하세요</h2>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={qrUrl} alt={`${data.board.title} 참여 QR 코드`} /><strong>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</strong><p>QR을 촬영하거나 참여 링크를 공유하세요.</p><button className="primary wide" onClick={async () => { await navigator.clipboard.writeText(shareUrl); setMessage("참여 링크를 복사했습니다."); }}>링크 복사하기</button></section></div>}
+      {showShare && <div className="share-modal-backdrop" onClick={() => setShowShare(false)}><section className="share-modal glass-card" role="dialog" aria-modal="true" aria-labelledby="share-title" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowShare(false)}>×</button><p className="eyebrow">JOIN THIS BOARD</p><h2 id="share-title">보드에 바로 참여하세요</h2><Image unoptimized width={230} height={230} src={qrUrl} alt={`${data.board.title} 참여 QR 코드`} /><strong>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</strong><p>QR을 촬영하거나 참여 링크를 공유하세요.</p><button className="primary wide" onClick={async () => { await navigator.clipboard.writeText(shareUrl); setMessage("참여 링크를 복사했습니다."); }}>링크 복사하기</button></section></div>}
     </main>
   );
 }
