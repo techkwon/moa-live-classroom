@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Activity = "quiz" | "cloud" | "open";
 
@@ -23,11 +23,15 @@ export function LivePulseApp() {
   const [submitted, setSubmitted] = useState(false);
   const [participants, setParticipants] = useState(127);
   const [toast, setToast] = useState("");
-  const [voted, setVoted] = useState<number | null>(null);
+  const [voted, setVoted] = useState<number[]>([]);
   const [activeId, setActiveId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [livePrompt, setLivePrompt] = useState("");
+  const [liveOptions, setLiveOptions] = useState<string[]>([]);
+  const [multiSelect, setMultiSelect] = useState(false);
 
   const copy = activityCopy[activity];
+  const displayPrompt = livePrompt || copy.prompt;
   const activityIndex = useMemo(() => ["quiz", "cloud", "open"].indexOf(activity), [activity]);
 
   function flash(message: string) {
@@ -39,6 +43,65 @@ export function LivePulseApp() {
     window.location.href = "/dashboard";
   }
 
+  useEffect(() => {
+    const joinCode = new URLSearchParams(window.location.search).get("join")?.replace(/\D/g, "");
+    if (joinCode?.length !== 6) return;
+    async function joinFromLink() {
+      const response = await fetch(`/api/sessions?code=${joinCode}`);
+      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean } };
+      if (!response.ok || !data.active) return;
+      setCode(`${joinCode!.slice(0, 3)} ${joinCode!.slice(3)}`);
+      setActiveId(data.active.id);
+      setActivity(data.active.type);
+      setLivePrompt(data.active.prompt);
+      setLiveOptions(data.active.options ? JSON.parse(data.active.options) as string[] : []);
+      setMultiSelect(Boolean(data.active.multiSelect));
+      setView("join");
+    }
+    void joinFromLink();
+  }, []);
+
+  useEffect(() => {
+    if (view !== "join" || !activeId) return;
+    const cleanCode = code.replace(/\D/g, "");
+    const timer = window.setInterval(async () => {
+      const response = await fetch(`/api/sessions?code=${cleanCode}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean } };
+      if (data.active && data.active.id !== activeId) {
+        setActiveId(data.active.id);
+        setActivity(data.active.type);
+        setLivePrompt(data.active.prompt);
+        setLiveOptions(data.active.options ? JSON.parse(data.active.options) as string[] : []);
+        setMultiSelect(Boolean(data.active.multiSelect));
+        setSubmitted(false);
+        setAnswer("");
+        setVoted([]);
+      }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [view, activeId, code]);
+
+  async function enterCode(cleanCode: string) {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/sessions?code=${cleanCode}`);
+      const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean }; error?: string };
+      if (!response.ok || !data.active) throw new Error(data.error ?? "세션을 찾을 수 없습니다.");
+      setActiveId(data.active.id);
+      setActivity(data.active.type);
+      setLivePrompt(data.active.prompt);
+      setLiveOptions(data.active.options ? JSON.parse(data.active.options) as string[] : []);
+      setMultiSelect(Boolean(data.active.multiSelect));
+      setVoted([]);
+      setView("join");
+    } catch {
+      flash("참여 코드를 다시 확인해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitJoin(event: FormEvent) {
     event.preventDefault();
     const cleanCode = code.replace(/\D/g, "");
@@ -46,20 +109,7 @@ export function LivePulseApp() {
       flash("6자리 참여 코드를 입력해 주세요.");
       return;
     }
-    setBusy(true);
-    try {
-      const response = await fetch(`/api/sessions?code=${cleanCode}`);
-      const data = await response.json() as { active?: { id: string; type: Activity }; error?: string };
-      if (!response.ok || !data.active) throw new Error(data.error ?? "세션을 찾을 수 없습니다.");
-      setActiveId(data.active.id);
-      setActivity(data.active.type);
-      setView("join");
-    } catch {
-      flash("체험용 세션으로 입장합니다.");
-      setView("join");
-    } finally {
-      setBusy(false);
-    }
+    await enterCode(cleanCode);
   }
 
   async function sendResponse(value: string) {
@@ -107,7 +157,7 @@ export function LivePulseApp() {
                 <button
                   key={key}
                   className={`activity-item ${activity === key ? "active" : ""}`}
-                  onClick={() => { setActivity(key); setVoted(null); setSubmitted(false); }}
+                  onClick={() => { setActivity(key); setVoted([]); setSubmitted(false); }}
                 >
                   <span className={`activity-icon ${activityCopy[key].color}`}>{activityCopy[key].icon}</span>
                   <span><b>{activityCopy[key].label}</b><small>{index + 1} / 3</small></span>
@@ -178,7 +228,7 @@ export function LivePulseApp() {
   }
 
   if (view === "join") {
-    const quizOptions = ["빠른 정답 찾기", "모두의 생각 연결하기", "숙제 자동 채점", "교사를 대신하기"];
+    const quizOptions = liveOptions.length ? liveOptions : ["빠른 정답 찾기", "모두의 생각 연결하기", "숙제 자동 채점", "교사를 대신하기"];
     return (
       <main className="app-shell participant-shell">
         <Decorations />
@@ -194,20 +244,21 @@ export function LivePulseApp() {
                 <p className="eyebrow">응답 완료</p>
                 <h1>생각을 보태 주셔서<br />고마워요!</h1>
                 <p className="muted">진행자가 다음 질문을 준비하고 있어요.</p>
-                <button className="secondary wide" onClick={() => { setSubmitted(false); setAnswer(""); setVoted(null); }}>다른 활동 체험하기</button>
+                <button className="secondary wide" onClick={() => { setSubmitted(false); setAnswer(""); setVoted([]); }}>다른 활동 체험하기</button>
               </>
             ) : (
               <>
                 <div className="participant-meta"><span className={`activity-icon ${copy.color}`}>{copy.icon}</span><span>{copy.label}</span><b>{participants}명 참여 중</b></div>
-                <h1>{copy.prompt}</h1>
+                <h1>{displayPrompt}</h1>
                 {activity === "quiz" ? (
                   <div className="quiz-options">
-                    {quizOptions.map((option, index) => <button key={option} className={voted === index ? "selected" : ""} onClick={() => setVoted(index)}><span>{String.fromCharCode(65 + index)}</span>{option}</button>)}
-                    <button className="primary wide" disabled={voted === null || busy} onClick={async () => {
-                      if (voted === null) return;
+                    {quizOptions.map((option, index) => <button key={option} className={voted.includes(index) ? "selected" : ""} onClick={() => setVoted((current) => multiSelect ? (current.includes(index) ? current.filter((value) => value !== index) : [...current, index]) : [index])}><span>{voted.includes(index) ? "✓" : String.fromCharCode(65 + index)}</span>{option}</button>)}
+                    {multiSelect && <p className="participant-hint">복수 정답 문항입니다. 여러 개를 선택하세요.</p>}
+                    <button className="primary wide" disabled={voted.length === 0 || busy} onClick={async () => {
+                      if (voted.length === 0) return;
                       setBusy(true);
                       try {
-                        await sendResponse(quizOptions[voted]);
+                        await sendResponse(voted.sort((a, b) => a - b).map((index) => quizOptions[index]).join("|||"));
                         setSubmitted(true);
                         setParticipants((n) => n + 1);
                       } catch {
@@ -225,7 +276,7 @@ export function LivePulseApp() {
                   </form>
                 )}
                 <div className="switch-activity">
-                  {(Object.keys(activityCopy) as Activity[]).map((key) => <button key={key} className={activity === key ? "active" : ""} onClick={() => { setActivity(key); setVoted(null); setAnswer(""); }}>{activityCopy[key].icon}</button>)}
+                  {(Object.keys(activityCopy) as Activity[]).map((key) => <button key={key} className={activity === key ? "active" : ""} onClick={() => { setActivity(key); setVoted([]); setAnswer(""); }}>{activityCopy[key].icon}</button>)}
                 </div>
               </>
             )}

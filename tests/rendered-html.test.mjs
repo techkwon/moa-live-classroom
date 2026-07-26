@@ -19,10 +19,11 @@ test("defines the finished Korean participation app", async () => {
 });
 
 test("gates session authoring behind ChatGPT sign-in and owner checks", async () => {
-  const [dashboard, builder, creator, schema] = await Promise.all([
+  const [dashboard, builder, creator, presenter, schema] = await Promise.all([
     readFile(new URL("../app/dashboard/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/dashboard/SessionBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/creator/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/present/[id]/Presenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
   ]);
   assert.match(dashboard, /requireChatGPTUser\("\/dashboard"\)/);
@@ -35,6 +36,12 @@ test("gates session authoring behind ChatGPT sign-in and owner checks", async ()
   assert.match(builder, /퀴즈/);
   assert.match(builder, /워드클라우드/);
   assert.match(builder, /오픈 질문/);
+  assert.match(builder, /correctIndices/);
+  assert.match(builder, /선택지 추가/);
+  assert.match(builder, /window\.location\.href = `\/present\//);
+  assert.match(presenter, /create-qr-code/);
+  assert.match(presenter, /참여 링크 복사/);
+  assert.match(presenter, /2초마다 자동 집계/);
 });
 
 test("ships the three requested activity types and durable storage declaration", async () => {

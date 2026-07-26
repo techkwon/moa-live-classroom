@@ -34,9 +34,15 @@ export async function GET(request: Request) {
     if (!session) return Response.json({ error: "세션을 찾을 수 없습니다." }, { status: 404 });
     const items = await db.select().from(activities).where(eq(activities.sessionId, session.id)).orderBy(asc(activities.position));
     const active = items.find((item) => item.isActive) ?? items[0];
+    const storedOptions = active?.options ? JSON.parse(active.options) as { choices?: string[]; correctIndex?: number; correctIndices?: number[] } : {};
+    const publicActive = active ? {
+      ...active,
+      options: storedOptions.choices ? JSON.stringify(storedOptions.choices) : null,
+      multiSelect: (storedOptions.correctIndices?.length ?? 1) > 1,
+    } : null;
     const result = active ? await db.select({ answer: responses.answer, count: sql<number>`count(*)` }).from(responses)
       .where(and(eq(responses.activityId, active.id))).groupBy(responses.answer) : [];
-    return Response.json({ session, activities: items, active, results: result });
+    return Response.json({ session, active: publicActive, results: result });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "세션을 불러오지 못했습니다." }, { status: 500 });
   }
