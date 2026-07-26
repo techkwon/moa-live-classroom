@@ -5,6 +5,7 @@ export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   code: text("code").notNull(),
   title: text("title").notNull(),
+  ownerEmail: text("owner_email"),
   status: text("status").notNull().default("live"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("sessions_code_idx").on(table.code)]);

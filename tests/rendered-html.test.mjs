@@ -12,9 +12,29 @@ test("defines the finished Korean participation app", async () => {
   assert.match(layout, /<html lang="ko">/);
   assert.match(layout, /모아/);
   assert.match(app, /모두의 생각이/);
-  assert.match(app, /새 세션 만들기/);
+  assert.match(app, /로그인 · 시작하기/);
+  assert.match(app, /세션 만들기/);
   assert.match(app, /참여하기/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|react-loading-skeleton|Starter Project/);
+});
+
+test("gates session authoring behind ChatGPT sign-in and owner checks", async () => {
+  const [dashboard, builder, creator, schema] = await Promise.all([
+    readFile(new URL("../app/dashboard/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/dashboard/SessionBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/creator/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(dashboard, /requireChatGPTUser\("\/dashboard"\)/);
+  assert.match(creator, /getChatGPTUser/);
+  assert.match(creator, /sessions\.ownerEmail/);
+  assert.match(creator, /status: 401/);
+  assert.match(schema, /ownerEmail/);
+  assert.match(builder, /초안 저장/);
+  assert.match(builder, /저장하고 시작/);
+  assert.match(builder, /퀴즈/);
+  assert.match(builder, /워드클라우드/);
+  assert.match(builder, /오픈 질문/);
 });
 
 test("ships the three requested activity types and durable storage declaration", async () => {

@@ -35,20 +35,8 @@ export function LivePulseApp() {
     window.setTimeout(() => setToast(""), 2200);
   }
 
-  async function createLiveSession() {
-    setBusy(true);
-    try {
-      const response = await fetch("/api/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create" }) });
-      const data = await response.json() as { code?: string; error?: string };
-      if (!response.ok || !data.code) throw new Error(data.error ?? "세션을 만들지 못했습니다.");
-      setCode(`${data.code.slice(0, 3)} ${data.code.slice(3)}`);
-      setView("host");
-    } catch {
-      flash("미리보기 세션으로 열었어요. 배포 환경에서는 새 코드가 저장됩니다.");
-      setView("host");
-    } finally {
-      setBusy(false);
-    }
+  function createLiveSession() {
+    window.location.href = "/dashboard";
   }
 
   async function submitJoin(event: FormEvent) {
@@ -254,7 +242,7 @@ export function LivePulseApp() {
       <header className="topbar">
         <button className="brand"><span className="brand-mark">M</span><span>모아</span></button>
         <nav><a href="#features">기능</a><a href="#how">활용 방법</a><a href="#teachers">교육용</a></nav>
-          <button className="secondary" onClick={createLiveSession} disabled={busy}>무료로 시작하기</button>
+          <button className="secondary" onClick={createLiveSession}>로그인 · 시작하기</button>
       </header>
 
       <section className="hero">
@@ -263,7 +251,7 @@ export function LivePulseApp() {
           <h1>모두의 생각이<br /><span>보이는 순간</span></h1>
           <p>퀴즈, 워드클라우드, 열린 질문으로<br />200명의 목소리를 한 화면에 모아보세요.</p>
           <div className="hero-actions">
-            <button className="primary" onClick={createLiveSession} disabled={busy}>{busy ? "세션 준비 중…" : "새 세션 만들기"} <span>→</span></button>
+            <button className="primary" onClick={createLiveSession}>세션 만들기 <span>→</span></button>
             <button className="text-button" onClick={() => setView("join")}>참여 화면 미리보기 <span>↗</span></button>
           </div>
           <div className="trust-row"><span className="avatar-stack">김<span>이</span><span>박</span></span><b>선생님과 진행자 12,000명이 함께해요</b></div>
