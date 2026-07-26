@@ -347,12 +347,13 @@ export function LivePulseApp() {
         <nav><a href="#features">주요 기능</a><a href="#join">코드로 참여</a></nav>
           <button className="secondary" onClick={createLiveSession}>로그인 · 시작하기</button>
       </header>
+      <div className="landing-update"><b>NEW</b><span>섹션 보드 · 파일 공유 · QR 참여 · 결과 다운로드</span></div>
 
       <section className="hero">
         <div className="hero-copy">
-          <div className="eyebrow-badge">✦ 생각이 모이면, 수업이 움직여요</div>
-          <h1>모두의 생각이<br /><span>보이는 순간</span></h1>
-          <p>라이브 질문과 섹션 보드로<br />교실의 모든 목소리를 한곳에 모아보세요.</p>
+          <div className="eyebrow-badge">교사를 위한 실시간 참여 수업 도구</div>
+          <h1>질문하고,<br /><span>모으고, 함께 봐요</span></h1>
+          <p>퀴즈부터 생각 보드까지 한 링크로.<br />조용한 학생의 의견도 수업의 중심으로 가져오세요.</p>
           <div className="hero-actions">
             <button className="primary" onClick={createLiveSession}>세션 만들기 <span>→</span></button>
             <a className="text-button" href="#join">참여 코드 입력 <span>↓</span></a>
@@ -366,14 +367,14 @@ export function LivePulseApp() {
             <div className="window-top"><div className="window-dots"><i /><i /><i /></div><span>LIVE SESSION</span><b>127명 참여 중</b></div>
             <div className="demo-content">
               <div className="demo-side"><span className="mini-logo">M</span><i className="active" /><i /><i /><i /></div>
-              <div className="demo-main">
-                <p>WORD CLOUD · 02</p>
-                <h3>오늘 수업을 한 단어로<br />표현해 주세요</h3>
-                <div className="mini-cloud">{cloudWords.slice(0, 6).map(([word, scale]) => <span key={String(word)} style={{ fontSize: `${Number(scale) * 1.25}rem` }}>{word}</span>)}</div>
+              <div className="demo-main landing-board-demo">
+                <p>CLASS BOARD · LIVE</p>
+                <h3>우리 반의 생각이<br />주제별로 차곡차곡</h3>
+                <div className="mini-board-columns"><article><b>아이디어</b><span>새로운 질문 만들기</span><span>친구 의견 연결하기</span></article><article><b>자료 공유</b><span>📎 활동지.pdf</span></article><article><b>질문</b><span>왜 그런가요?</span></article></div>
               </div>
             </div>
           </div>
-          <div className="floating-card float-quiz"><span>✓</span><div><b>라이브 퀴즈</b><small>정답률 86%</small></div></div>
+          <div className="floating-card float-quiz"><span>▦</span><div><b>생각 보드</b><small>QR로 바로 참여</small></div></div>
           <div className="floating-card float-reaction">👏 <b>+24</b></div>
           <div className="code-sticker">JOIN<br /><b>482 913</b></div>
         </div>

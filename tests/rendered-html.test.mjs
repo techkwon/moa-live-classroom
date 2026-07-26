@@ -11,7 +11,7 @@ test("defines the finished Korean participation app", async () => {
   assert.match(page, /LivePulseApp/);
   assert.match(layout, /<html lang="ko">/);
   assert.match(layout, /모아/);
-  assert.match(app, /모두의 생각이/);
+  assert.match(app, /질문하고/);
   assert.match(app, /로그인 · 시작하기/);
   assert.match(app, /세션 만들기/);
   assert.match(app, /참여하기/);
@@ -113,9 +113,29 @@ test("offers board themes, QR participation links, and honest landing copy", asy
   ]);
   assert.match(schema, /theme: text\("theme"\)/);
   assert.match(boardsApi, /action === "setTheme"/);
-  assert.match(boardCanvas, /QR · 참여 링크/);
+  assert.match(boardCanvas, /QR 크게 보기/);
   assert.match(boardCanvas, /create-qr-code/);
   assert.match(boardCanvas, /boardThemes/);
   assert.match(app, /섹션 보드/);
   assert.doesNotMatch(app, /12,000명/);
+});
+
+test("exports owned session and board responses and keeps board joining visible", async () => {
+  const [exportsApi, exportButtons, boardCanvas, presenter, app] = await Promise.all([
+    readFile(new URL("../app/api/exports/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/ExportButtons.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/board/[code]/BoardCanvas.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/present/[id]/Presenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/LivePulseApp.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(exportsApi, /sessions\.ownerEmail/);
+  assert.match(exportsApi, /boards\.ownerEmail/);
+  assert.match(exportsApi, /responses\.answer/);
+  assert.match(exportsApi, /boardPosts\.content/);
+  assert.match(exportButtons, /application\/vnd\.ms-excel/);
+  assert.match(exportButtons, /PDF로 저장/);
+  assert.match(boardCanvas, /board-share-panel/);
+  assert.match(boardCanvas, /보드 참여 링크/);
+  assert.match(presenter, /type="session"/);
+  assert.match(app, /결과 다운로드/);
 });

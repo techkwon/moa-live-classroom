@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
+import { ExportButtons } from "../../ExportButtons";
 
 type Post = { id: string; authorName: string; content: string; fileKey: string | null; fileName: string | null; fileType: string | null; fileSize: number | null; createdAt: string };
 type Section = { id: string; title: string; position: number; posts: Post[] };
@@ -66,7 +67,11 @@ export function BoardCanvas({ code, boardId, manage = false }: { code?: string; 
       <div className="board-aurora" aria-hidden="true" />
       <header className="board-header">
         <div><Link className="brand" href={manage ? "/boards" : "/"}><span className="brand-mark">M</span><span>모아 보드</span></Link><p>{data.board.description}</p><h1>{data.board.title}</h1></div>
-        <div className="board-header-actions"><span>참여 코드 <b>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</b></span><button onClick={() => setShowShare(true)}>QR · 참여 링크</button>{manage && <Link href={`/board/${data.board.code}`}>학생 화면 ↗</Link>}</div>
+        <div className="board-share-panel">
+          {qrUrl && <Image unoptimized width={84} height={84} src={qrUrl} alt={`${data.board.title} 참여 QR 코드`} />}
+          <div><small>보드 참여 링크</small><b>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</b><a href={shareUrl}>{shareUrl.replace(/^https?:\/\//, "")}</a><div className="board-share-actions"><button onClick={() => setShowShare(true)}>QR 크게 보기</button><button onClick={() => navigator.clipboard.writeText(shareUrl)}>링크 복사</button>{manage && <Link href={`/board/${data.board.code}`}>학생 화면 ↗</Link>}</div></div>
+          {manage && <ExportButtons type="board" id={data.board.id} />}
+        </div>
       </header>
       {manage && <div className="board-admin-bar"><b>교사 관리</b><div className="theme-picker" aria-label="보드 배경 선택">{boardThemes.map((theme) => <button key={theme.id} className={data.board.theme === theme.id ? "active" : ""} title={theme.label} style={{ background: `linear-gradient(135deg,${theme.colors})` }} onClick={() => void manageAction({ action: "setTheme", theme: theme.id })}><span className="sr-only">{theme.label}</span></button>)}</div><input placeholder="새 섹션 이름" value={newSection} onChange={(event) => setNewSection(event.target.value)} /><button onClick={() => newSection.trim() && void manageAction({ action: "addSection", title: newSection.trim() })}>＋ 섹션 추가</button></div>}
       <section className="section-board">

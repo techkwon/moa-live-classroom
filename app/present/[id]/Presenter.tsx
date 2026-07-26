@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ExportButtons } from "../../ExportButtons";
 
 type Activity = { id: string; type: "quiz" | "cloud" | "open"; prompt: string; options: string | null; position: number; isActive: boolean; accepting: boolean; revealAnswer: boolean };
 type Result = { id?: string; answer: string; count: number; likes?: number };
@@ -84,6 +85,7 @@ export function Presenter({ session, activities }: { session: { id: string; titl
           {qrUrl && <img className="qr-image" src={qrUrl} width="210" height="210" alt={`참여 코드 ${session.code} QR`} />}
           <p className="qr-help">휴대폰 카메라로 찍으면<br />참여 화면에 바로 접속합니다.</p>
           <button className="primary wide" onClick={copyLink}>{copied ? "복사 완료 ✓" : "참여 링크 복사"}</button>
+          <ExportButtons type="session" id={session.id} />
           <div className="presenter-questions">
             {activities.map((item, index) => <button className={item.id === activeId ? "active" : ""} key={item.id} onClick={() => void activate(item.id)}><span>0{index + 1}</span><b>{item.prompt}</b></button>)}
           </div>
