@@ -24,6 +24,8 @@ export function LivePulseApp() {
   const [participants, setParticipants] = useState(127);
   const [toast, setToast] = useState("");
   const [voted, setVoted] = useState<number | null>(null);
+  const [activeId, setActiveId] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const copy = activityCopy[activity];
   const activityIndex = useMemo(() => ["quiz", "cloud", "open"].indexOf(activity), [activity]);
@@ -33,20 +35,67 @@ export function LivePulseApp() {
     window.setTimeout(() => setToast(""), 2200);
   }
 
-  function submitJoin(event: FormEvent) {
+  async function createLiveSession() {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create" }) });
+      const data = await response.json() as { code?: string; error?: string };
+      if (!response.ok || !data.code) throw new Error(data.error ?? "세션을 만들지 못했습니다.");
+      setCode(`${data.code.slice(0, 3)} ${data.code.slice(3)}`);
+      setView("host");
+    } catch {
+      flash("미리보기 세션으로 열었어요. 배포 환경에서는 새 코드가 저장됩니다.");
+      setView("host");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitJoin(event: FormEvent) {
     event.preventDefault();
-    if (code.replace(/\D/g, "").length < 6) {
+    const cleanCode = code.replace(/\D/g, "");
+    if (cleanCode.length < 6) {
       flash("6자리 참여 코드를 입력해 주세요.");
       return;
     }
-    setView("join");
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/sessions?code=${cleanCode}`);
+      const data = await response.json() as { active?: { id: string; type: Activity }; error?: string };
+      if (!response.ok || !data.active) throw new Error(data.error ?? "세션을 찾을 수 없습니다.");
+      setActiveId(data.active.id);
+      setActivity(data.active.type);
+      setView("join");
+    } catch {
+      flash("체험용 세션으로 입장합니다.");
+      setView("join");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function submitText(event: FormEvent) {
+  async function sendResponse(value: string) {
+    if (activeId) {
+      const participantId = localStorage.getItem("moa-participant") ?? crypto.randomUUID();
+      localStorage.setItem("moa-participant", participantId);
+      const response = await fetch("/api/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "respond", activityId: activeId, participantId, answer: value }) });
+      if (!response.ok) throw new Error("응답 전송 실패");
+    }
+  }
+
+  async function submitText(event: FormEvent) {
     event.preventDefault();
     if (!answer.trim()) return flash("답변을 먼저 입력해 주세요.");
-    setSubmitted(true);
-    setParticipants((current) => current + 1);
+    setBusy(true);
+    try {
+      await sendResponse(answer.trim());
+      setSubmitted(true);
+      setParticipants((current) => current + 1);
+    } catch {
+      flash("응답을 보내지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (view === "host") {
@@ -57,7 +106,7 @@ export function LivePulseApp() {
           <button className="brand" onClick={() => setView("home")} aria-label="모아 홈">
             <span className="brand-mark">M</span><span>모아</span>
           </button>
-          <div className="session-chip"><span className="live-dot" /> 라이브 · 482 913</div>
+          <div className="session-chip"><span className="live-dot" /> 라이브 · {code}</div>
           <button className="avatar" aria-label="내 계정">김</button>
         </header>
 
@@ -130,7 +179,7 @@ export function LivePulseApp() {
             </div>
 
             <div className="host-footer glass-card">
-              <span>참여 코드</span><strong>482 913</strong><span className="divider" />
+              <span>참여 코드</span><strong>{code}</strong><span className="divider" />
               <span>moa.live</span><button onClick={() => flash("참여 링크를 복사했어요.")}>링크 복사</button>
             </div>
           </section>
@@ -147,7 +196,7 @@ export function LivePulseApp() {
         <Decorations />
         <header className="topbar">
           <button className="brand" onClick={() => setView("home")}><span className="brand-mark">M</span><span>모아</span></button>
-          <div className="session-chip">세션 482 913</div>
+          <div className="session-chip">세션 {code}</div>
         </header>
         <section className="phone-stage">
           <div className={`participant-card glass-card ${submitted ? "success-card" : ""}`}>
@@ -166,13 +215,25 @@ export function LivePulseApp() {
                 {activity === "quiz" ? (
                   <div className="quiz-options">
                     {quizOptions.map((option, index) => <button key={option} className={voted === index ? "selected" : ""} onClick={() => setVoted(index)}><span>{String.fromCharCode(65 + index)}</span>{option}</button>)}
-                    <button className="primary wide" disabled={voted === null} onClick={() => { setSubmitted(true); setParticipants((n) => n + 1); }}>답변 보내기</button>
+                    <button className="primary wide" disabled={voted === null || busy} onClick={async () => {
+                      if (voted === null) return;
+                      setBusy(true);
+                      try {
+                        await sendResponse(quizOptions[voted]);
+                        setSubmitted(true);
+                        setParticipants((n) => n + 1);
+                      } catch {
+                        flash("응답을 보내지 못했어요. 잠시 후 다시 시도해 주세요.");
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}>{busy ? "전송 중…" : "답변 보내기"}</button>
                   </div>
                 ) : (
                   <form onSubmit={submitText}>
                     <textarea maxLength={activity === "cloud" ? 20 : 280} placeholder={activity === "cloud" ? "예: 몰입" : "자유롭게 생각을 적어 주세요."} value={answer} onChange={(e) => setAnswer(e.target.value)} />
                     <div className="field-note"><span>익명으로 공유돼요</span><span>{answer.length} / {activity === "cloud" ? 20 : 280}</span></div>
-                    <button className="primary wide">답변 보내기</button>
+                    <button className="primary wide" disabled={busy}>{busy ? "전송 중…" : "답변 보내기"}</button>
                   </form>
                 )}
                 <div className="switch-activity">
@@ -193,7 +254,7 @@ export function LivePulseApp() {
       <header className="topbar">
         <button className="brand"><span className="brand-mark">M</span><span>모아</span></button>
         <nav><a href="#features">기능</a><a href="#how">활용 방법</a><a href="#teachers">교육용</a></nav>
-        <button className="secondary" onClick={() => setView("host")}>무료로 시작하기</button>
+          <button className="secondary" onClick={createLiveSession} disabled={busy}>무료로 시작하기</button>
       </header>
 
       <section className="hero">
@@ -202,7 +263,7 @@ export function LivePulseApp() {
           <h1>모두의 생각이<br /><span>보이는 순간</span></h1>
           <p>퀴즈, 워드클라우드, 열린 질문으로<br />200명의 목소리를 한 화면에 모아보세요.</p>
           <div className="hero-actions">
-            <button className="primary" onClick={() => setView("host")}>새 세션 만들기 <span>→</span></button>
+            <button className="primary" onClick={createLiveSession} disabled={busy}>{busy ? "세션 준비 중…" : "새 세션 만들기"} <span>→</span></button>
             <button className="text-button" onClick={() => setView("join")}>참여 화면 미리보기 <span>↗</span></button>
           </div>
           <div className="trust-row"><span className="avatar-stack">김<span>이</span><span>박</span></span><b>선생님과 진행자 12,000명이 함께해요</b></div>
