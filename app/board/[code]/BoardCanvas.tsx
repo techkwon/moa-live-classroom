@@ -5,7 +5,16 @@ import { FormEvent, useEffect, useState } from "react";
 
 type Post = { id: string; authorName: string; content: string; fileKey: string | null; fileName: string | null; fileType: string | null; fileSize: number | null; createdAt: string };
 type Section = { id: string; title: string; position: number; posts: Post[] };
-type BoardData = { board: { id: string; code: string; title: string; description: string }; sections: Section[] };
+type BoardTheme = "berry" | "sunset" | "forest" | "ocean" | "paper" | "midnight";
+type BoardData = { board: { id: string; code: string; title: string; description: string; theme: BoardTheme }; sections: Section[] };
+const boardThemes: Array<{ id: BoardTheme; label: string; colors: string }> = [
+  { id: "berry", label: "베리 글로우", colors: "#a13f78,#f08094" },
+  { id: "sunset", label: "살구 노을", colors: "#ed8c68,#ffd49d" },
+  { id: "forest", label: "민트 숲", colors: "#397d6b,#bfe8c9" },
+  { id: "ocean", label: "라일락 바다", colors: "#5476a8,#c7b7ed" },
+  { id: "paper", label: "크림 노트", colors: "#eee2c6,#fffaf0" },
+  { id: "midnight", label: "밤하늘", colors: "#252342,#665383" },
+];
 
 export function BoardCanvas({ code, boardId, manage = false }: { code?: string; boardId?: string; manage?: boolean }) {
   const [data, setData] = useState<BoardData | null>(null);
@@ -16,6 +25,7 @@ export function BoardCanvas({ code, boardId, manage = false }: { code?: string; 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [newSection, setNewSection] = useState("");
+  const [showShare, setShowShare] = useState(false);
 
   async function load() {
     const response = await fetch(`/api/boards?${manage ? `id=${boardId}` : `code=${code}`}`, { cache: "no-store" });
@@ -49,14 +59,15 @@ export function BoardCanvas({ code, boardId, manage = false }: { code?: string; 
   }
   if (!data) return <main className="board-loading"><span className="brand-mark">M</span><p>보드를 불러오는 중…</p></main>;
   const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/board/${data.board.code}`;
+  const qrUrl = shareUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=14&data=${encodeURIComponent(shareUrl)}` : "";
   return (
-    <main className="board-canvas">
+    <main className={`board-canvas theme-${data.board.theme || "berry"}`}>
       <div className="board-aurora" aria-hidden="true" />
       <header className="board-header">
         <div><Link className="brand" href={manage ? "/boards" : "/"}><span className="brand-mark">M</span><span>모아 보드</span></Link><p>{data.board.description}</p><h1>{data.board.title}</h1></div>
-        <div className="board-header-actions"><span>참여 코드 <b>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</b></span><button onClick={() => navigator.clipboard.writeText(shareUrl)}>링크 복사</button>{manage && <Link href={`/board/${data.board.code}`}>학생 화면 ↗</Link>}</div>
+        <div className="board-header-actions"><span>참여 코드 <b>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</b></span><button onClick={() => setShowShare(true)}>QR · 참여 링크</button>{manage && <Link href={`/board/${data.board.code}`}>학생 화면 ↗</Link>}</div>
       </header>
-      {manage && <div className="board-admin-bar"><b>교사 관리 모드</b><input placeholder="새 섹션 이름" value={newSection} onChange={(event) => setNewSection(event.target.value)} /><button onClick={() => newSection.trim() && void manageAction({ action: "addSection", title: newSection.trim() })}>＋ 섹션 추가</button></div>}
+      {manage && <div className="board-admin-bar"><b>교사 관리</b><div className="theme-picker" aria-label="보드 배경 선택">{boardThemes.map((theme) => <button key={theme.id} className={data.board.theme === theme.id ? "active" : ""} title={theme.label} style={{ background: `linear-gradient(135deg,${theme.colors})` }} onClick={() => void manageAction({ action: "setTheme", theme: theme.id })}><span className="sr-only">{theme.label}</span></button>)}</div><input placeholder="새 섹션 이름" value={newSection} onChange={(event) => setNewSection(event.target.value)} /><button onClick={() => newSection.trim() && void manageAction({ action: "addSection", title: newSection.trim() })}>＋ 섹션 추가</button></div>}
       <section className="section-board">
         {data.sections.map((section) => <article className="board-column" key={section.id}>
           <div className="column-head">{manage ? <input value={section.title} onChange={(event) => setData((current) => current ? { ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, title: event.target.value } : item) } : current)} onBlur={() => void manageAction({ action: "renameSection", sectionId: section.id, title: section.title })} /> : <h2>{section.title}</h2>}<span>{section.posts.length}</span></div>
@@ -77,6 +88,7 @@ export function BoardCanvas({ code, boardId, manage = false }: { code?: string; 
         </article>)}
       </section>
       <button className="floating-post" onClick={() => setComposer(data.sections[0]?.id ?? "")}>＋ 게시</button>
+      {showShare && <div className="share-modal-backdrop" onClick={() => setShowShare(false)}><section className="share-modal glass-card" role="dialog" aria-modal="true" aria-labelledby="share-title" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowShare(false)}>×</button><p className="eyebrow">JOIN THIS BOARD</p><h2 id="share-title">보드에 바로 참여하세요</h2>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={qrUrl} alt={`${data.board.title} 참여 QR 코드`} /><strong>{data.board.code.slice(0,3)} {data.board.code.slice(3)}</strong><p>QR을 촬영하거나 참여 링크를 공유하세요.</p><button className="primary wide" onClick={async () => { await navigator.clipboard.writeText(shareUrl); setMessage("참여 링크를 복사했습니다."); }}>링크 복사하기</button></section></div>}
     </main>
   );
 }

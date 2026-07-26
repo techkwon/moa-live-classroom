@@ -1,0 +1,1 @@
+ALTER TABLE `boards` ADD `theme` text DEFAULT 'berry' NOT NULL;

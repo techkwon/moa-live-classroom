@@ -98,6 +98,22 @@ test("locks responses to the presented question and provides section boards with
   assert.match(boardsApi, /env\.UPLOADS\.put/);
   assert.match(studio, /섹션 구성/);
   assert.match(boardCanvas, /파일 첨부/);
-  assert.match(boardCanvas, /교사 관리 모드/);
+  assert.match(boardCanvas, /교사 관리/);
   assert.equal(JSON.parse(hosting).r2, "UPLOADS");
+});
+
+test("offers board themes, QR participation links, and honest landing copy", async () => {
+  const [app, boardCanvas, boardsApi, schema] = await Promise.all([
+    readFile(new URL("../app/LivePulseApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/board/[code]/BoardCanvas.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/boards/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(schema, /theme: text\("theme"\)/);
+  assert.match(boardsApi, /action === "setTheme"/);
+  assert.match(boardCanvas, /QR · 참여 링크/);
+  assert.match(boardCanvas, /create-qr-code/);
+  assert.match(boardCanvas, /boardThemes/);
+  assert.match(app, /섹션 보드/);
+  assert.doesNotMatch(app, /12,000명/);
 });

@@ -344,7 +344,7 @@ export function LivePulseApp() {
       <Decorations />
       <header className="topbar">
         <button className="brand"><span className="brand-mark">M</span><span>모아</span></button>
-        <nav><a href="#features">기능</a><a href="#how">활용 방법</a><a href="#teachers">교육용</a></nav>
+        <nav><a href="#features">주요 기능</a><a href="#join">코드로 참여</a></nav>
           <button className="secondary" onClick={createLiveSession}>로그인 · 시작하기</button>
       </header>
 
@@ -352,12 +352,12 @@ export function LivePulseApp() {
         <div className="hero-copy">
           <div className="eyebrow-badge">✦ 생각이 모이면, 수업이 움직여요</div>
           <h1>모두의 생각이<br /><span>보이는 순간</span></h1>
-          <p>퀴즈, 워드클라우드, 열린 질문으로<br />200명의 목소리를 한 화면에 모아보세요.</p>
+          <p>라이브 질문과 섹션 보드로<br />교실의 모든 목소리를 한곳에 모아보세요.</p>
           <div className="hero-actions">
             <button className="primary" onClick={createLiveSession}>세션 만들기 <span>→</span></button>
-            <button className="text-button" onClick={() => setView("join")}>참여 화면 미리보기 <span>↗</span></button>
+            <a className="text-button" href="#join">참여 코드 입력 <span>↓</span></a>
           </div>
-          <div className="trust-row"><span className="avatar-stack">김<span>이</span><span>박</span></span><b>선생님과 진행자 12,000명이 함께해요</b></div>
+          <div className="trust-row"><span className="avatar-stack">Q<span>☁</span><span>▦</span></span><b>퀴즈 · 워드클라우드 · 생각 보드</b></div>
         </div>
 
         <div className="hero-demo">
@@ -379,14 +379,14 @@ export function LivePulseApp() {
         </div>
       </section>
 
-      <section className="join-strip glass-card">
+      <section className="join-strip glass-card" id="join">
         <div><span className="pulse-icon">◉</span><p><b>이미 세션이 진행 중인가요?</b><small>진행자에게 받은 6자리 코드를 입력하세요.</small></p></div>
         <form onSubmit={submitJoin}><input inputMode="numeric" aria-label="참여 코드" value={code} onChange={(e) => setCode(e.target.value)} /><button className="primary">참여하기 →</button></form>
       </section>
 
       <section className="feature-section" id="features">
         <p className="eyebrow">하나의 세션, 무한한 참여</p>
-        <h2>말하지 않아도<br />모두가 참여하는 수업</h2>
+        <h2>수업의 흐름은 단순하게,<br />참여 방식은 풍성하게</h2>
         <div className="feature-grid">
           {(Object.keys(activityCopy) as Activity[]).map((key, index) => (
             <article className={`feature-card ${activityCopy[key].color}`} key={key}>
@@ -397,6 +397,13 @@ export function LivePulseApp() {
               <button onClick={() => { setActivity(key); setView("join"); }}>체험하기 ↗</button>
             </article>
           ))}
+          <article className="feature-card board-feature">
+            <div className="feature-number">04</div>
+            <span className="big-icon">▦</span>
+            <h3>섹션 보드</h3>
+            <p>주제별 게시판에 의견과 파일을 모으고 QR로 바로 초대해요.</p>
+            <button onClick={createLiveSession}>보드 만들기 ↗</button>
+          </article>
         </div>
       </section>
       <footer><div className="brand"><span className="brand-mark">M</span><span>모아</span></div><p>모두의 생각을 모으는 가장 따뜻한 방법.</p><span>© 2026 MOA LAB</span></footer>

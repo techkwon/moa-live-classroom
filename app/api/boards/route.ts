@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   try {
     const contentType = request.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) return createPost(request);
-    const payload = await request.json() as { action?: string; boardId?: string; sectionId?: string; postId?: string; title?: string; description?: string; sections?: string[] };
+    const payload = await request.json() as { action?: string; boardId?: string; sectionId?: string; postId?: string; title?: string; description?: string; theme?: string; sections?: string[] };
     const user = await getChatGPTUser();
     if (!user) return Response.json({ error: "로그인이 필요합니다." }, { status: 401 });
     const db = getDb();
@@ -89,6 +89,14 @@ export async function POST(request: Request) {
       const sectionId = payload.sectionId?.trim();
       if (!title || !sectionId) return Response.json({ error: "섹션 정보가 필요합니다." }, { status: 400 });
       await db.update(boardSections).set({ title }).where(and(eq(boardSections.id, sectionId), eq(boardSections.boardId, boardId)));
+      return Response.json({ ok: true });
+    }
+
+    if (payload.action === "setTheme") {
+      const theme = payload.theme?.trim() ?? "";
+      const allowedThemes = ["berry", "sunset", "forest", "ocean", "paper", "midnight"];
+      if (!allowedThemes.includes(theme)) return Response.json({ error: "지원하지 않는 배경입니다." }, { status: 400 });
+      await db.update(boards).set({ theme }).where(eq(boards.id, boardId));
       return Response.json({ ok: true });
     }
 

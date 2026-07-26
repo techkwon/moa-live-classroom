@@ -59,6 +59,7 @@ export const boards = sqliteTable("boards", {
   code: text("code").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
+  theme: text("theme").notNull().default("berry"),
   ownerEmail: text("owner_email").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("boards_code_idx").on(table.code), index("boards_owner_idx").on(table.ownerEmail)]);
