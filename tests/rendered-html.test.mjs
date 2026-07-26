@@ -43,6 +43,8 @@ test("gates session authoring behind ChatGPT sign-in and owner checks", async ()
   assert.match(presenter, /참여 링크 복사/);
   assert.match(presenter, /2초마다 자동 집계/);
   assert.match(presenter, /참여 정보 숨기기/);
+  assert.match(presenter, /focus-results/);
+  assert.match(presenter, /참여 정보 보기/);
   assert.match(presenter, /응답 마감/);
   assert.match(presenter, /정답 공개/);
   assert.match(builder, /정답 없이 의견만 집계/);
