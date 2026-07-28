@@ -14,5 +14,5 @@ export default async function PresentPage({ params }: { params: Promise<{ id: st
   const [session] = await db.select().from(sessions).where(and(eq(sessions.id, id), eq(sessions.ownerEmail, user.email))).limit(1);
   if (!session) notFound();
   const items = await db.select().from(activities).where(eq(activities.sessionId, id)).orderBy(asc(activities.position));
-  return <Presenter session={{ id: session.id, title: session.title, code: session.code }} activities={items} />;
+  return <Presenter session={{ id: session.id, title: session.title, code: session.code, joinOpen: session.joinOpen }} activities={items} />;
 }

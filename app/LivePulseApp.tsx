@@ -54,8 +54,12 @@ export function LivePulseApp() {
     if (joinCode?.length !== 6) return;
     async function joinFromLink() {
       const response = await fetch(`/api/sessions?code=${joinCode}`);
-      const data = await response.json() as { session?: { id: string }; active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }> };
-      if (!response.ok || !data.active) return;
+      const data = await response.json() as { session?: { id: string }; active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }>; error?: string };
+      if (!response.ok || !data.active) {
+        setToast(data.error ?? "현재 참여할 수 없는 세션입니다.");
+        window.setTimeout(() => setToast(""), 3500);
+        return;
+      }
       setCode(`${joinCode!.slice(0, 3)} ${joinCode!.slice(3)}`);
       setSessionId(data.session?.id ?? "");
       setActiveId(data.active.id);
@@ -77,7 +81,10 @@ export function LivePulseApp() {
     const cleanCode = code.replace(/\D/g, "");
     const timer = window.setInterval(async () => {
       const response = await fetch(`/api/sessions?code=${cleanCode}`, { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) {
+        if (response.status === 403) setAccepting(false);
+        return;
+      }
       const data = await response.json() as { active?: { id: string; type: Activity; prompt: string; options: string | null; multiSelect?: boolean; accepting: boolean; revealAnswer: boolean; correctIndices?: number[] }; results?: Array<{ id?: string; answer: string; likes?: number }> };
       if (data.active) {
         setAccepting(data.active.accepting);

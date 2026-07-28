@@ -139,3 +139,22 @@ test("exports owned session and board responses and keeps board joining visible"
   assert.match(presenter, /type="session"/);
   assert.match(app, /결과 다운로드/);
 });
+
+test("keeps participation locked until the authenticated owner opens the session", async () => {
+  const [schema, creator, sessionsApi, presenter] = await Promise.all([
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/creator/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sessions/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/present/[id]/Presenter.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(schema, /joinOpen: integer\("join_open"/);
+  assert.match(schema, /default\(false\)/);
+  assert.match(creator, /action === "access"/);
+  assert.match(creator, /sessions\.ownerEmail/);
+  assert.match(creator, /joinOpen: false/);
+  assert.match(sessionsApi, /진행자가 아직 참여를 허용하지 않았습니다/);
+  assert.match(sessionsApi, /activity\?\.joinOpen/);
+  assert.match(presenter, /참여 허용/);
+  assert.match(presenter, /참여 닫기/);
+  assert.match(presenter, /presenter=1/);
+});

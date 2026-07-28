@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `join_open` integer DEFAULT false NOT NULL;

@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   const user = await authenticatedUser();
   if (!user) return Response.json({ error: "로그인이 필요합니다." }, { status: 401 });
   try {
-    const payload = await request.json() as { action?: string; sessionId?: string; activityId?: string; accepting?: boolean; revealAnswer?: boolean; title?: string; launch?: boolean; activities?: ActivityInput[] };
+    const payload = await request.json() as { action?: string; sessionId?: string; activityId?: string; accepting?: boolean; revealAnswer?: boolean; joinOpen?: boolean; title?: string; launch?: boolean; activities?: ActivityInput[] };
     const db = getDb();
     if (payload.action === "activate") {
       const sessionId = payload.sessionId?.trim();
@@ -84,6 +84,14 @@ export async function POST(request: Request) {
       }).where(eq(activities.id, activityId));
       return Response.json({ ok: true });
     }
+    if (payload.action === "access") {
+      const sessionId = payload.sessionId?.trim();
+      if (!sessionId || typeof payload.joinOpen !== "boolean") return Response.json({ error: "참여 허용 정보가 필요합니다." }, { status: 400 });
+      const [owned] = await db.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.ownerEmail, user.email))).limit(1);
+      if (!owned) return Response.json({ error: "변경 권한이 없습니다." }, { status: 403 });
+      await db.update(sessions).set({ joinOpen: payload.joinOpen }).where(eq(sessions.id, sessionId));
+      return Response.json({ ok: true, joinOpen: payload.joinOpen });
+    }
     if (payload.action !== "save") return Response.json({ error: "지원하지 않는 요청입니다." }, { status: 400 });
     const title = payload.title?.trim();
     const inputs = payload.activities ?? [];
@@ -106,10 +114,10 @@ export async function POST(request: Request) {
     if (payload.sessionId) {
       const [owned] = await db.select({ id: sessions.id, code: sessions.code }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.ownerEmail, user.email))).limit(1);
       if (!owned) return Response.json({ error: "수정 권한이 없습니다." }, { status: 403 });
-      await db.update(sessions).set({ title, status: payload.launch ? "live" : "draft" }).where(eq(sessions.id, sessionId));
+      await db.update(sessions).set({ title, status: payload.launch ? "live" : "draft", joinOpen: false }).where(eq(sessions.id, sessionId));
       await db.delete(activities).where(eq(activities.sessionId, sessionId));
     } else {
-      await db.insert(sessions).values({ id: sessionId, code, title, ownerEmail: user.email, status: payload.launch ? "live" : "draft" });
+      await db.insert(sessions).values({ id: sessionId, code, title, ownerEmail: user.email, status: payload.launch ? "live" : "draft", joinOpen: false });
     }
     await db.insert(activities).values(normalized.map((item, position) => ({
       id: crypto.randomUUID(),
